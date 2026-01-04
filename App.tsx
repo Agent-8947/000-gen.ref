@@ -124,11 +124,17 @@ export default function App() {
     const siteTheme = globalSettings['GL10']?.params[6]?.value || 'Dark';
     root.setAttribute('data-theme', siteTheme.toLowerCase());
 
-    // Global Radius Multiplier (GL07)
+    // GL07: Radius Multiplier
     const gl07 = globalSettings['GL07'].params;
     root.style.setProperty('--dna-radius', `${gl07[0].value}px`);
 
-  }, [globalSettings]);
+    // PERF_01: CSS Scale Engine
+    // Base unit comes from GL01[0] (Base Size)
+    const baseSize = gl01[0]?.value || '16';
+    root.style.setProperty('--dna-unit', `${baseSize}px`);
+    root.style.setProperty('--ui-scale', `${uiTheme.interfaceScale / 100}`);
+
+  }, [globalSettings, uiTheme.interfaceScale]);
 
   // Editor Interface
   const appBg = ''; // Deprecated, using dynamic styles

@@ -57,12 +57,6 @@ export const Hero: React.FC<HeroProps> = ({ id, type, localOverrides: overrides 
     });
 
     // Typography Inheritance
-    const baseSize = parseFloat(gl01[0].value);
-    const flow = parseFloat(gl03[6]?.value || '1.0');
-    // Mobile Scale: 2.5 * Flow (e.g. 0.65 -> 1.625x), min safe 0.5
-    const mobileTitleScale = Math.max(0.5, 2.5 * flow);
-    const mobileDescScale = Math.max(0.4, 1.0 * flow);
-
     const getTypoStyle = (typo: any, defaults: any) => {
         const useGlobal = !typo || typo.useGlobal !== false;
         if (useGlobal) return defaults;
@@ -79,7 +73,7 @@ export const Hero: React.FC<HeroProps> = ({ id, type, localOverrides: overrides 
 
     const titleStyle = {
         ...getTypoStyle(safeData.titleTypo, {
-            fontSize: (baseSize * (isMobileMode ? mobileTitleScale : 4)) + 'px',
+            fontSize: isMobileMode ? 'calc(var(--dna-unit) * 3.25)' : 'calc(var(--dna-unit) * 6)',
             fontWeight: gl01[3].value,
             letterSpacing: gl01[4].value + 'em',
             lineHeight: '1.1',
@@ -93,7 +87,7 @@ export const Hero: React.FC<HeroProps> = ({ id, type, localOverrides: overrides 
 
     const descStyle = {
         ...getTypoStyle(safeData.descriptionTypo, {
-            fontSize: (baseSize * (isMobileMode ? mobileDescScale : 1.1)) + 'px',
+            fontSize: isMobileMode ? 'calc(var(--dna-unit) * 1.125)' : 'calc(var(--dna-unit) * 1.5)',
             fontWeight: '400',
             letterSpacing: '0',
             lineHeight: '1.6',

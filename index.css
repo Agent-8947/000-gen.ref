@@ -1,0 +1,23 @@
+:root {
+  /* DNA Scale Engine Base */
+  --dna-unit: 16px; 
+  --ui-scale: 1;
+
+  /* Typography Utilities */
+  --dna-text-xs: calc(var(--dna-unit) * 0.75 * var(--ui-scale));
+  --dna-text-sm: calc(var(--dna-unit) * 0.875 * var(--ui-scale));
+  --dna-text-base: calc(var(--dna-unit) * 1 * var(--ui-scale));
+  --dna-text-lg: calc(var(--dna-unit) * 1.125 * var(--ui-scale));
+  --dna-text-xl: calc(var(--dna-unit) * 1.25 * var(--ui-scale));
+  --dna-text-2xl: calc(var(--dna-unit) * 1.5 * var(--ui-scale));
+  --dna-text-3xl: calc(var(--dna-unit) * 1.875 * var(--ui-scale));
+  --dna-text-4xl: calc(var(--dna-unit) * 2.25 * var(--ui-scale));
+  --dna-text-5xl: calc(var(--dna-unit) * 3 * var(--ui-scale));
+  --dna-text-6xl: calc(var(--dna-unit) * 3.75 * var(--ui-scale));
+}
+
+.dna-text-base { font-size: var(--dna-text-base); }
+.dna-text-lg { font-size: var(--dna-text-lg); }
+.dna-text-xl { font-size: var(--dna-text-xl); }
+.dna-text-display { font-size: var(--dna-text-5xl); }
+.dna-text-hero { font-size: var(--dna-text-6xl); }
