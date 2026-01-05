@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store';
 import { resolveBlock } from '../utils/blockRegistry';
+import { translateData } from '../utils/withTranslation';
 
 // Loading Skeleton
 const BlockSkeleton = () => (
@@ -11,7 +12,7 @@ const BlockSkeleton = () => (
 );
 
 export const ContentBlock: React.FC<{ id: string, type: string, localOverrides: any }> = ({ id, type, localOverrides }) => {
-    const { setSelectedBlock, selectedBlockId, uiTheme, globalSettings } = useStore();
+    const { setSelectedBlock, selectedBlockId, uiTheme, globalSettings, currentLanguage } = useStore();
     const isSelected = selectedBlockId === id;
 
     const gPattern = globalSettings.GL02.params[7]?.value || 'None';
@@ -22,6 +23,21 @@ export const ContentBlock: React.FC<{ id: string, type: string, localOverrides: 
     const isNavbar = type === 'B0101' || type === 'B0102' || type === 'Navbar';
     const stickySetting = localOverrides.data?.stickyLogic === 'true' || globalSettings['GL11']?.params[0]?.value === 'true';
     const isSticky = isNavbar && stickySetting;
+
+    // Translate data for current language
+    const translatedOverrides = {
+        ...localOverrides,
+        data: translateData(localOverrides?.data, currentLanguage)
+    };
+
+    // Debug: log translation (detailed)
+    console.log(`[Translation Debug] Block ${type} (${id.slice(0, 8)}):`, {
+        currentLanguage,
+        hasData: !!localOverrides?.data,
+        originalData: localOverrides?.data,
+        translatedData: translatedOverrides?.data,
+        dataKeys: localOverrides?.data ? Object.keys(localOverrides.data) : []
+    });
 
     return (
         <motion.div
@@ -55,7 +71,7 @@ export const ContentBlock: React.FC<{ id: string, type: string, localOverrides: 
             {/* Component Render */}
             <Suspense fallback={<BlockSkeleton />}>
                 {BlockComponent ? (
-                    <BlockComponent id={id} type={type} localOverrides={localOverrides} />
+                    <BlockComponent id={id} type={type} localOverrides={translatedOverrides} currentLang={currentLanguage} />
                 ) : (
                     <div className="p-12 border-4 border-dashed border-red-500 bg-red-500/10 text-center flex flex-col items-center gap-4">
                         <div className="w-12 h-12 bg-red-500 text-white rounded-full flex items-center justify-center font-black animate-pulse">!</div>

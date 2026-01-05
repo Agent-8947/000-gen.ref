@@ -15,10 +15,203 @@ export const DataPanel: React.FC = () => {
             const dnaData = exportProjectData();
 
             // ========================================
-            // 1. PACKAGE.JSON
+            // ФУНКЦИЯ ДЛЯ ЧТЕНИЯ ФАЙЛОВ
+            // ========================================
+            const readFile = async (path: string): Promise<string> => {
+                try {
+                    const response = await fetch(path);
+                    if (!response.ok) throw new Error(`Failed to fetch ${path}`);
+                    return await response.text();
+                } catch (error) {
+                    console.warn(`Could not read file: ${path}`, error);
+                    return '';
+                }
+            };
+
+            // ========================================
+            // 1. СОЗДАЕМ УПРОЩЕННЫЕ ФАЙЛЫ ДЛЯ PRODUCTION САЙТА
+            // ========================================
+            const state = JSON.parse(dnaData);
+
+            // Упрощенный App.tsx (только Viewer)
+            zip.file('App.tsx', `import React from 'react';
+import { Viewer } from './components/Viewer';
+
+export default function App() {
+  return <Viewer />;
+}
+`);
+
+            // Упрощенный store.ts (только для чтения данных)
+            zip.file('store.ts', `import { create } from 'zustand';
+
+// Simplified store for production site (read-only + basic interactions)
+interface ProductionState {
+  contentBlocks: any[];
+  globalSettings: any;
+  currentLanguage: string;
+  uiTheme: any;
+  setCurrentLanguage: (lang: string) => void;
+  toggleSiteTheme: () => void;
+}
+
+// Helper to get content blocks from state
+const getContentBlocks = () => {
+  const state = window.__DNA_STATE__;
+  if (!state) return [];
+  
+  // Try pages.home first (new format)
+  if (state.pages?.home) return state.pages.home;
+  
+  // Try pages[currentPage] (if currentPage is set)
+  if (state.pages && state.currentPage) {
+    return state.pages[state.currentPage] || [];
+  }
+  
+  // Fallback to contentBlocks (old format)
+  return state.contentBlocks || [];
+};
+
+export const useStore = create<ProductionState>((set, get) => ({
+  contentBlocks: getContentBlocks(),
+  globalSettings: window.__DNA_STATE__?.globalSettings || {},
+  currentLanguage: window.__DNA_STATE__?.currentLanguage || window.__DNA_STATE__?.globalSettings?.GL12?.params?.[0]?.value || 'en',
+  uiTheme: window.__DNA_STATE__?.uiTheme || {},
+  
+  // Language switcher
+  setCurrentLanguage: (lang: string) => {
+    set({ currentLanguage: lang });
+  },
+  
+  // Theme toggle
+  toggleSiteTheme: () => {
+    const { globalSettings } = get();
+    const currentMode = globalSettings['GL10']?.params[6]?.value || 'Dark';
+    const newMode = currentMode === 'Light' ? 'Dark' : 'Light';
+    
+    // Update global settings
+    if (globalSettings['GL10']) {
+      globalSettings['GL10'].params[6].value = newMode;
+    }
+    
+    // Update colors based on theme
+    const isDark = newMode === 'Dark';
+    if (globalSettings['GL02']) {
+      globalSettings['GL02'].params[0].value = isDark ? '#1A1A1A' : '#FFFFFF';
+      globalSettings['GL02'].params[1].value = isDark ? '#242424' : '#F3F4F6';
+      globalSettings['GL02'].params[2].value = isDark ? '#60A5FA' : '#3B82F6';
+      globalSettings['GL02'].params[3].value = isDark ? '#F9FAFB' : '#1A1A1A';
+      globalSettings['GL02'].params[4].value = isDark ? '#9CA3AF' : '#6B7280';
+      globalSettings['GL02'].params[5].value = isDark ? '#374151' : '#E5E7EB';
+    }
+    
+    set({ globalSettings: { ...globalSettings } });
+    
+    // Update CSS variables
+    const root = document.documentElement;
+    root.setAttribute('data-theme', newMode.toLowerCase());
+  }
+}));
+
+// Type declaration for window
+declare global {
+  interface Window {
+    __DNA_STATE__: any;
+  }
+}
+`);
+
+
+            // index.css
+            const indexCssContent = await readFile('/index.css');
+            if (indexCssContent) {
+                zip.file('index.css', indexCssContent);
+            } else {
+                zip.file('index.css', `:root {
+  --dna-unit: 16px;
+  --ui-scale: 1;
+  --dna-text-xs: calc(var(--dna-unit) * 0.75 * var(--ui-scale));
+  --dna-text-sm: calc(var(--dna-unit) * 0.875 * var(--ui-scale));
+  --dna-text-base: calc(var(--dna-unit) * 1 * var(--ui-scale));
+  --dna-text-lg: calc(var(--dna-unit) * 1.125 * var(--ui-scale));
+  --dna-text-xl: calc(var(--dna-unit) * 1.25 * var(--ui-scale));
+  --dna-text-2xl: calc(var(--dna-unit) * 1.5 * var(--ui-scale));
+  --dna-text-3xl: calc(var(--dna-unit) * 1.875 * var(--ui-scale));
+  --dna-text-4xl: calc(var(--dna-unit) * 2.25 * var(--ui-scale));
+  --dna-text-5xl: calc(var(--dna-unit) * 3 * var(--ui-scale));
+  --dna-text-6xl: calc(var(--dna-unit) * 3.75 * var(--ui-scale));
+}
+
+.dna-text-base { font-size: var(--dna-text-base); }
+.dna-text-lg { font-size: var(--dna-text-lg); }
+.dna-text-xl { font-size: var(--dna-text-xl); }
+.dna-text-display { font-size: var(--dna-text-5xl); }
+.dna-text-hero { font-size: var(--dna-text-6xl); }
+`);
+            }
+
+            // ========================================
+            // 2. UTILS FOLDER
+            // ========================================
+            const utilsFolder = zip.folder('utils');
+
+            const blockRegistryContent = await readFile('/utils/blockRegistry.ts');
+            if (blockRegistryContent && utilsFolder) utilsFolder.file('blockRegistry.ts', blockRegistryContent);
+
+            const translationsContent = await readFile('/utils/translations.ts');
+            if (translationsContent && utilsFolder) utilsFolder.file('translations.ts', translationsContent);
+
+            const translationHelperContent = await readFile('/utils/translationHelper.ts');
+            if (translationHelperContent && utilsFolder) utilsFolder.file('translationHelper.ts', translationHelperContent);
+
+            const withTranslationContent = await readFile('/utils/withTranslation.tsx');
+            if (withTranslationContent && utilsFolder) utilsFolder.file('withTranslation.tsx', withTranslationContent);
+
+            // ========================================
+            // 3. COMPONENTS FOLDER (только для отображения сайта)
+            // ========================================
+            const componentsFolder = zip.folder('components');
+
+            // Только компоненты для отображения сайта (БЕЗ редактора)
+            const viewerComponents = [
+                'Viewer.tsx',
+                'Accordion.tsx',
+                'Article.tsx',
+                'Badges.tsx',
+                'CodeShowcase.tsx',
+                'ContactForm.tsx',
+                'FeaturedProject.tsx',
+                'Footer.tsx',
+                'Hero.tsx',
+                'Logos.tsx',
+                'Methodology.tsx',
+                'Navbar.tsx',
+                'Portfolio.tsx',
+                'Preview.tsx',
+                'ProjectsGrid.tsx',
+                'RadarChart.tsx',
+                'Skills.tsx',
+                'SocialDock.tsx',
+                'Spacer.tsx',
+                'Stats.tsx',
+                'Tabs.tsx',
+                'TechStack.tsx',
+                'Testimonials.tsx',
+                'Timeline.tsx'
+            ];
+
+            for (const file of viewerComponents) {
+                const content = await readFile(`/components/${file}`);
+                if (content && componentsFolder) {
+                    componentsFolder.file(file, content);
+                }
+            }
+
+            // ========================================
+            // 4. PACKAGE.JSON (упрощенный, без лишних зависимостей)
             // ========================================
             zip.file('package.json', JSON.stringify({
-                "name": "dna-matrix-project",
+                "name": "dna-matrix-site",
                 "private": true,
                 "version": "1.0.0",
                 "type": "module",
@@ -31,8 +224,6 @@ export const DataPanel: React.FC = () => {
                 },
                 "dependencies": {
                     "framer-motion": "^12.23.26",
-                    "immer": "^11.1.0",
-                    "jszip": "^3.10.1",
                     "lucide-react": "^0.562.0",
                     "react": "^19.2.3",
                     "react-dom": "^19.2.3",
@@ -49,7 +240,7 @@ export const DataPanel: React.FC = () => {
             }, null, 2));
 
             // ========================================
-            // 2. TSCONFIG.JSON
+            // 5. TSCONFIG.JSON
             // ========================================
             zip.file('tsconfig.json', JSON.stringify({
                 "compilerOptions": {
@@ -74,10 +265,9 @@ export const DataPanel: React.FC = () => {
             }, null, 2));
 
             // ========================================
-            // 3. VITE.CONFIG.TS
+            // 6. VITE.CONFIG.TS
             // ========================================
-            zip.file('vite.config.ts', `
-import path from 'path';
+            zip.file('vite.config.ts', `import path from 'path';
 import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -114,7 +304,7 @@ export default defineConfig(({ mode }) => {
 `);
 
             // ========================================
-            // 4. VERCEL.JSON
+            // 7. VERCEL.JSON
             // ========================================
             zip.file('vercel.json', JSON.stringify({
                 "buildCommand": "npm run build",
@@ -126,7 +316,7 @@ export default defineConfig(({ mode }) => {
             }, null, 2));
 
             // ========================================
-            // 5. .GITIGNORE
+            // 8. .GITIGNORE
             // ========================================
             zip.file('.gitignore', `# Dependencies
 node_modules
@@ -165,47 +355,47 @@ yarn-error.log*
 `);
 
             // ========================================
-            // 6. README.MD
+            // 9. README.MD
             // ========================================
-            zip.file('README.md', `# DNA Matrix Builder Project
+            zip.file('README.md', `# DNA Matrix Site
 
-This project was exported from DNA Matrix Builder.
+Этот сайт был экспортирован из DNA Matrix Builder.
 
-## 🚀 Quick Start
+## 🚀 Быстрый старт
 
 \`\`\`bash
-# Install dependencies
+# Установите зависимости
 npm install
 
-# Run development server
+# Запустите dev-сервер
 npm run dev
 \`\`\`
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Откройте [http://localhost:3000](http://localhost:3000) в браузере.
 
-## 📦 Build for Production
+## 📦 Сборка для продакшена
 
 \`\`\`bash
 npm run build
 \`\`\`
 
-The production build will be in the \`dist\` folder.
+Production-сборка будет в папке \`dist\`.
 
-## 🌐 Deploy to Vercel
+## 🌐 Деплой на Vercel
 
-### Option 1: Using Vercel CLI
+### Вариант 1: Через Vercel CLI
 
 \`\`\`bash
-# Install Vercel CLI
+# Установите Vercel CLI
 npm i -g vercel
 
-# Deploy
+# Деплой
 vercel --prod
 \`\`\`
 
-### Option 2: Using GitHub
+### Вариант 2: Через GitHub
 
-1. Push to GitHub:
+1. Загрузите на GitHub:
 \`\`\`bash
 git init
 git add .
@@ -214,54 +404,53 @@ git remote add origin YOUR_GITHUB_REPO_URL
 git push -u origin main
 \`\`\`
 
-2. Go to [vercel.com](https://vercel.com)
-3. Click "New Project"
-4. Import your GitHub repository
-5. Click "Deploy"
+2. Перейдите на [vercel.com](https://vercel.com)
+3. Нажмите "New Project"
+4. Импортируйте ваш GitHub репозиторий
+5. Нажмите "Deploy"
 
-## 📁 Project Structure
+## 📁 Структура проекта
 
 \`\`\`
-dna-matrix-project/
-├── components/          # React components
-│   ├── Canvas.tsx
-│   ├── Sidebar.tsx
-│   ├── DataPanel.tsx
+dna-matrix-site/
+├── components/          # React компоненты сайта
+│   ├── Viewer.tsx      # Главный компонент
+│   ├── Hero.tsx
+│   ├── Navbar.tsx
 │   └── ...
-├── utils/              # Utility functions
-├── store.ts            # Zustand state management
-├── App.tsx             # Main application
-├── index.tsx           # Entry point
-├── index.css           # Global styles
-├── vite.config.ts      # Vite configuration
-├── vercel.json         # Vercel deployment config
-└── package.json        # Dependencies
+├── utils/              # Утилиты
+├── store.ts            # Состояние (Zustand)
+├── App.tsx             # Приложение
+├── index.tsx           # Точка входа
+├── index.css           # Стили
+├── vite.config.ts      # Конфигурация Vite
+└── package.json        # Зависимости
 \`\`\`
 
-## 🛠️ Technologies
+## 🛠️ Технологии
 
-- **React 19** - UI library
-- **TypeScript** - Type safety
-- **Vite** - Build tool
-- **Zustand** - State management
-- **Framer Motion** - Animations
-- **Lucide React** - Icons
-- **Tailwind CSS** - Styling
+- **React 19** - UI библиотека
+- **TypeScript** - Типизация
+- **Vite** - Сборщик
+- **Zustand** - Управление состоянием
+- **Framer Motion** - Анимации
+- **Lucide React** - Иконки
+- **Tailwind CSS** - Стилизация
 
-## 📝 License
+## 📝 Лицензия
 
 MIT
 `);
 
             // ========================================
-            // 7. INDEX.HTML
+            // 10. INDEX.HTML
             // ========================================
             zip.file('index.html', `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DNA Matrix Builder</title>
+  <title>DNA Matrix Site</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Share+Tech&family=Orbitron:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Lilex:wght@300;400;500;600;700&display=swap"
@@ -270,15 +459,18 @@ MIT
 </head>
 <body>
   <div id="root"></div>
+  <script>
+    // Inject project state
+    window.__DNA_STATE__ = ${JSON.stringify(state)};
+  </script>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>`);
 
             // ========================================
-            // 8. INDEX.TSX
+            // 11. INDEX.TSX
             // ========================================
-            zip.file('index.tsx', `
-import React from 'react';
+            zip.file('index.tsx', `import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
@@ -297,35 +489,7 @@ root.render(
 `);
 
             // ========================================
-            // 9. INDEX.CSS
-            // ========================================
-            zip.file('index.css', `:root {
-  /* DNA Scale Engine Base */
-  --dna-unit: 16px; 
-  --ui-scale: 1;
-
-  /* Typography Utilities */
-  --dna-text-xs: calc(var(--dna-unit) * 0.75 * var(--ui-scale));
-  --dna-text-sm: calc(var(--dna-unit) * 0.875 * var(--ui-scale));
-  --dna-text-base: calc(var(--dna-unit) * 1 * var(--ui-scale));
-  --dna-text-lg: calc(var(--dna-unit) * 1.125 * var(--ui-scale));
-  --dna-text-xl: calc(var(--dna-unit) * 1.25 * var(--ui-scale));
-  --dna-text-2xl: calc(var(--dna-unit) * 1.5 * var(--ui-scale));
-  --dna-text-3xl: calc(var(--dna-unit) * 1.875 * var(--ui-scale));
-  --dna-text-4xl: calc(var(--dna-unit) * 2.25 * var(--ui-scale));
-  --dna-text-5xl: calc(var(--dna-unit) * 3 * var(--ui-scale));
-  --dna-text-6xl: calc(var(--dna-unit) * 3.75 * var(--ui-scale));
-}
-
-.dna-text-base { font-size: var(--dna-text-base); }
-.dna-text-lg { font-size: var(--dna-text-lg); }
-.dna-text-xl { font-size: var(--dna-text-xl); }
-.dna-text-display { font-size: var(--dna-text-5xl); }
-.dna-text-hero { font-size: var(--dna-text-6xl); }
-`);
-
-            // ========================================
-            // 10. VITE-ENV.D.TS
+            // 12. VITE-ENV.D.TS
             // ========================================
             zip.file('vite-env.d.ts', `/// <reference types="vite/client" />
 
@@ -340,50 +504,9 @@ interface ImportMeta {
 `);
 
             // ========================================
-            // 11. PROJECT DATA
+            // 13. PROJECT DATA
             // ========================================
             zip.file('project-data.json', dnaData);
-
-            // ========================================
-            // 12. ИНСТРУКЦИЯ ПО КОПИРОВАНИЮ ФАЙЛОВ
-            // ========================================
-            zip.file('COPY_FILES_INSTRUCTION.md', `# 📋 Инструкция по копированию файлов
-
-Этот ZIP-архив содержит базовую структуру проекта. Для полного функционирующего проекта вам нужно:
-
-## ✅ Шаг 1: Распакуйте ZIP
-
-Распакуйте этот архив в папку вашего проекта.
-
-## ✅ Шаг 2: Скопируйте файлы из исходного проекта
-
-Из папки исходного проекта скопируйте следующие папки и файлы:
-
-### Обязательные файлы:
-- \`App.tsx\` - главный компонент приложения
-- \`store.ts\` - состояние приложения (Zustand)
-- \`/components/\` - все React компоненты
-- \`/utils/\` - утилиты
-
-### Путь к исходному проекту:
-\`e:\\Downloads\\#ANTYIGRAVITY\\000-GEN.REF\\000-gen.ref\`
-
-## ✅ Шаг 3: Установите зависимости
-
-\`\`\`bash
-npm install
-\`\`\`
-
-## ✅ Шаг 4: Запустите проект
-
-\`\`\`bash
-npm run dev
-\`\`\`
-
-## 🚀 Готово к деплою на GitHub!
-
-После копирования файлов проект готов к загрузке на GitHub и деплою на Vercel.
-`);
 
             // Генерируем ZIP
             const blob = await zip.generateAsync({ type: 'blob' });
@@ -392,17 +515,17 @@ npm run dev
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'dna-matrix-react-project.zip';
+            a.download = 'dna-matrix-site.zip';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            alert('✅ React проект экспортирован!\n\n📦 Скачан: dna-matrix-react-project.zip\n\n📁 Содержимое:\n• package.json\n• tsconfig.json\n• vite.config.ts\n• vercel.json\n• index.html/tsx/css\n• README.md\n• .gitignore\n• project-data.json\n\n⚠️ ВАЖНО: Скопируйте файлы из текущей папки:\n• App.tsx\n• store.ts\n• /components/\n• /utils/\n\nПодробности в COPY_FILES_INSTRUCTION.md');
+            alert('✅ Сайт успешно экспортирован!\n\n📦 Скачан: dna-matrix-site.zip\n\n📁 Содержимое:\n✓ Готовый сайт (БЕЗ конструктора)\n✓ Только компоненты отображения\n✓ Все настройки и данные\n✓ README с инструкциями\n\n🚀 Готов к деплою на Vercel!\n\n📋 Следующие шаги:\n1. Распакуйте ZIP\n2. npm install\n3. npm run dev (для проверки)\n4. npm run build (для продакшена)\n5. Загрузите на GitHub\n6. Подключите к Vercel');
 
         } catch (error) {
             console.error('Export error:', error);
-            alert('❌ Ошибка при экспорте проекта');
+            alert('❌ Ошибка при экспорте проекта: ' + (error as Error).message);
         } finally {
             setExporting(false);
         }

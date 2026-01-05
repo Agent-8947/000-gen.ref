@@ -125,6 +125,7 @@ interface GridState {
   initHeroBlock: () => void;
   resetVisibility: () => void;
   emergencyRestore: (val: string) => void;
+  autoTranslate: () => void;
 }
 
 const injectedState = (window as any).__DNA_STATE__;
@@ -234,7 +235,10 @@ export const useStore = create<GridState>()(
         state.gridMode === 'columns' ? 'mobile' :
           state.gridMode === 'mobile' ? 'rows' : 'off'
     })),
-    setCurrentLanguage: (lang: string) => set({ currentLanguage: lang }),
+    setCurrentLanguage: (lang: string) => set((state) => ({
+      currentLanguage: lang,
+      canvasKey: state.canvasKey + 1
+    })),
     globalSettings: injectedState?.globalSettings || (() => {
       const groups: Record<string, { name: string; params: string[] }> = {
         'GL01': { name: 'Text', params: ["Base Size", "Scale Ratio", "Line Height", "Weight", "Tracking", "Uppercase", "Smoothing", "Font Family"] },
@@ -1316,6 +1320,80 @@ export const useLocalStorage = (key: string, initialValue: any) => {
         get().loadSnapshot('GOLDEN_STABLE_666');
         get().triggerIOFeedback();
       }
+    },
+
+    // Auto-translate all blocks
+    autoTranslate: () => {
+      const state = get();
+      const blocks = state.pages[state.currentPage];
+
+      if (!blocks || blocks.length === 0) {
+        console.warn('⚠️ No blocks found');
+        return;
+      }
+
+      console.log(`🔄 Auto-translating ${blocks.length} blocks...`);
+
+      let translatedCount = 0;
+
+      const translateWord = (text: string, lang: 'uk' | 'ru'): string => {
+        const dictUk: Record<string, string> = {
+          'DESIGN': 'ДИЗАЙН', 'DRIVEN': 'КЕРОВАНИЙ', 'DNA': 'ДНК',
+          'Configure': 'Налаштуйте', 'your': 'ваш', 'interface': 'інтерфейс',
+          'through': 'через', 'global': 'глобальні', 'genetic': 'генетичні',
+          'parameters': 'параметри', 'or': 'або', 'local': 'локальні',
+          'overrides': 'перевизначення', 'Get': 'Почати', 'Launch': 'Запустити',
+          'System': 'систему', 'Learn': 'Дізнатися', 'More': 'більше',
+          'Home': 'Головна', 'About': 'Про нас', 'Contact': 'Контакти'
+        };
+
+        const dictRu: Record<string, string> = {
+          'DESIGN': 'ДИЗАЙН', 'DRIVEN': 'УПРАВЛЯЕМЫЙ', 'DNA': 'ДНК',
+          'Configure': 'Настройте', 'your': 'ваш', 'interface': 'интерфейс',
+          'through': 'через', 'global': 'глобальные', 'genetic': 'генетические',
+          'parameters': 'параметры', 'or': 'или', 'local': 'локальные',
+          'overrides': 'переопределения', 'Get': 'Начать', 'Launch': 'Запустить',
+          'System': 'систему', 'Learn': 'Узнать', 'More': 'больше',
+          'Home': 'Главная', 'About': 'О нас', 'Contact': 'Контакты'
+        };
+
+        const dict = lang === 'uk' ? dictUk : dictRu;
+        let result = text;
+        Object.keys(dict).forEach(key => {
+          const regex = new RegExp(`\\b${key}\\b`, 'gi');
+          result = result.replace(regex, dict[key]);
+        });
+        return result.replace(/\s+/g, ' ').trim();
+      };
+
+      blocks.forEach((block: any) => {
+        if (!block.localOverrides?.data) return;
+
+        const data = block.localOverrides.data;
+        let hasChanges = false;
+
+        Object.keys(data).forEach(key => {
+          const value = data[key];
+
+          if (typeof value !== 'string' || !value.trim()) return;
+
+          data[key] = {
+            en: value,
+            uk: translateWord(value, 'uk'),
+            ru: translateWord(value, 'ru')
+          };
+
+          hasChanges = true;
+          console.log(`  ✓ Translated: ${key}`);
+        });
+
+        if (hasChanges) translatedCount++;
+      });
+
+      state.setCurrentLanguage(state.currentLanguage);
+
+      console.log(`✅ Auto-translation complete! Translated ${translatedCount} blocks.`);
+      console.log('🔄 Switch languages to test!');
     },
   }),
 );

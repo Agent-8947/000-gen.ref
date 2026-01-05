@@ -5,7 +5,7 @@ import { LANGUAGE_NAMES } from '../utils/translations';
 import { Sun, Moon, Globe, ChevronDown } from 'lucide-react';
 
 /* Update Navbar component to accept 'type' prop and use it for glass effect logic instead of 'id' to fix type mismatch in ContentBlock.tsx */
-export const Navbar: React.FC<{ id: string, type: string, localOverrides: any }> = ({ id, type, localOverrides }) => {
+export const Navbar: React.FC<{ id: string, type: string, localOverrides: any, currentLang?: string }> = ({ id, type, localOverrides, currentLang = 'en' }) => {
     const { globalSettings, toggleSiteTheme, currentLanguage, setCurrentLanguage } = useStore();
     const [langDropdownOpen, setLangDropdownOpen] = useState(false);
 

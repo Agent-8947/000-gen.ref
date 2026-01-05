@@ -1,6 +1,7 @@
 import React, { Suspense, useEffect } from 'react';
 import { useStore } from '../store';
 import { resolveBlock } from '../utils/blockRegistry';
+import { translateData } from '../utils/withTranslation';
 
 /**
  * Viewer Component - Production/Read-only Mode
@@ -175,13 +176,26 @@ export const Viewer: React.FC = () => {
                                     </div>
                                 }
                             >
-                                <BlockComponent
-                                    block={block}
-                                    currentLang={currentLanguage}
-                                    isPreview={false}
-                                    isSelected={false}
-                                    onSelect={() => { }} // No-op in viewer mode
-                                />
+                                <div
+                                    style={{
+                                        position: (block.type === 'B0101' || block.type === 'B0102') ? 'sticky' : 'relative',
+                                        top: (block.type === 'B0101' || block.type === 'B0102') ? 0 : 'auto',
+                                        zIndex: (block.type === 'B0101' || block.type === 'B0102') ? 1000 : 'auto'
+                                    }}
+                                >
+                                    <BlockComponent
+                                        id={block.id}
+                                        type={block.type}
+                                        localOverrides={{
+                                            ...block.localOverrides,
+                                            data: translateData(block.localOverrides?.data, currentLanguage)
+                                        }}
+                                        currentLang={currentLanguage}
+                                        isPreview={false}
+                                        isSelected={false}
+                                        onSelect={() => { }} // No-op in viewer mode
+                                    />
+                                </div>
                             </Suspense>
                         );
                     })

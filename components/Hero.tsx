@@ -6,9 +6,10 @@ interface HeroProps {
     id: string;
     type: string;
     localOverrides: any;
+    currentLang?: string;
 }
 
-export const Hero: React.FC<HeroProps> = ({ id, type, localOverrides: overrides }) => {
+export const Hero: React.FC<HeroProps> = ({ id, type, localOverrides: overrides, currentLang = 'en' }) => {
     const { globalSettings, viewportMode } = useStore();
     const isMobileMode = viewportMode === 'mobile';
 
