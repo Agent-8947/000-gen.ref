@@ -6,12 +6,55 @@ import { GlobalSettings } from './components/GlobalSettings';
 import { BlockList } from './components/BlockList';
 import { DataPanel } from './components/DataPanel';
 import { Canvas } from './components/Canvas';
+import { Viewer } from './components/Viewer';
 import { X } from 'lucide-react';
 
 import { PropertyInspector, RightSidebar } from './components/PropertyInspector';
 
+/**
+ * Detect Production/Viewer Mode
+ * 
+ * The app can run in two modes:
+ * 1. EDITOR MODE (default) - Full editing capabilities with UI controls
+ * 2. VIEWER MODE (production) - Clean read-only view without editor UI
+ * 
+ * Viewer mode is activated when:
+ * - Environment variable VITE_APP_MODE is set to "production"
+ * - URL parameter ?mode=view is present
+ * - URL parameter ?viewer=true is present
+ */
+const isProductionMode = (): boolean => {
+  // Check environment variable (with safe access)
+  try {
+    if (import.meta?.env?.VITE_APP_MODE === 'production') {
+      return true;
+    }
+  } catch (error) {
+    // import.meta.env might not be available in all contexts
+    console.debug('Environment variables not available:', error);
+  }
+
+  // Check URL parameters
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'view' || params.get('viewer') === 'true') {
+      return true;
+    }
+  }
+
+  return false;
+};
 
 export default function App() {
+  // Check if we should render in production/viewer mode
+  const isProduction = isProductionMode();
+
+  // If in production mode, render Viewer component
+  if (isProduction) {
+    return <Viewer />;
+  }
+
+  // Otherwise, render full editor interface
   const {
     canvasKey,
     isGlobalOpen,

@@ -1,30 +1,432 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { X, Globe, FileCode, Upload } from 'lucide-react';
+import JSZip from 'jszip';
 
 export const DataPanel: React.FC = () => {
-  const { uiTheme, toggleDataPanel, exportProjectData, importProjectData } = useStore();
-  const [exporting, setExporting] = useState(false);
+    const { uiTheme, toggleDataPanel, exportProjectData, importProjectData } = useStore();
+    const [exporting, setExporting] = useState(false);
 
-  const handleExportProductionSite = async () => {
-    setExporting(true);
+    const handleExportReactProject = async () => {
+        setExporting(true);
 
-    try {
-      const dnaData = exportProjectData();
-      const state = JSON.parse(dnaData);
+        try {
+            const zip = new JSZip();
+            const dnaData = exportProjectData();
 
-      const getParam = (group: string, id: string) =>
-        state.globalSettings?.[group]?.params?.find((p: any) => p.id === id)?.value;
+            // ========================================
+            // 1. PACKAGE.JSON
+            // ========================================
+            zip.file('package.json', JSON.stringify({
+                "name": "dna-matrix-project",
+                "private": true,
+                "version": "1.0.0",
+                "type": "module",
+                "homepage": ".",
+                "scripts": {
+                    "dev": "vite",
+                    "build": "vite build",
+                    "preview": "vite preview",
+                    "deploy:vercel": "vercel --prod"
+                },
+                "dependencies": {
+                    "framer-motion": "^12.23.26",
+                    "immer": "^11.1.0",
+                    "jszip": "^3.10.1",
+                    "lucide-react": "^0.562.0",
+                    "react": "^19.2.3",
+                    "react-dom": "^19.2.3",
+                    "zustand": "^5.0.9"
+                },
+                "devDependencies": {
+                    "@types/node": "^22.14.0",
+                    "@types/react": "^19.0.8",
+                    "@types/react-dom": "^19.0.3",
+                    "@vitejs/plugin-react": "^5.0.0",
+                    "typescript": "~5.8.2",
+                    "vite": "^6.2.0"
+                }
+            }, null, 2));
 
-      const bgColor = getParam('GL02', 'P1') || '#09090B';
-      const textColor = getParam('GL02', 'P4') || '#FFFFFF';
-      const accentColor = getParam('GL02', 'P3') || '#3B82F6';
-      const fontFamily = getParam('GL01', 'P8') || 'Inter';
-      const containerWidth = getParam('GL03', 'P6') || '1200';
-      const radius = getParam('GL07', 'P1') || '8';
-      const isSticky = getParam('GL11', 'P1') === 'true';
+            // ========================================
+            // 2. TSCONFIG.JSON
+            // ========================================
+            zip.file('tsconfig.json', JSON.stringify({
+                "compilerOptions": {
+                    "target": "ES2022",
+                    "experimentalDecorators": true,
+                    "useDefineForClassFields": false,
+                    "module": "ESNext",
+                    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+                    "skipLibCheck": true,
+                    "types": ["node"],
+                    "moduleResolution": "bundler",
+                    "isolatedModules": true,
+                    "moduleDetection": "force",
+                    "allowJs": true,
+                    "jsx": "react-jsx",
+                    "paths": {
+                        "@/*": ["./*"]
+                    },
+                    "allowImportingTsExtensions": true,
+                    "noEmit": true
+                }
+            }, null, 2));
 
-      const htmlContent = `<!DOCTYPE html>
+            // ========================================
+            // 3. VITE.CONFIG.TS
+            // ========================================
+            zip.file('vite.config.ts', `
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
+
+// Fix: define __dirname for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, '.', '');
+  return {
+    base: './',
+    server: {
+      port: 3000,
+      host: '0.0.0.0',
+    },
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
+      }
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom']
+          }
+        }
+      }
+    }
+  };
+});
+`);
+
+            // ========================================
+            // 4. VERCEL.JSON
+            // ========================================
+            zip.file('vercel.json', JSON.stringify({
+                "buildCommand": "npm run build",
+                "outputDirectory": "dist",
+                "framework": "vite",
+                "rewrites": [
+                    { "source": "/(.*)", "destination": "/index.html" }
+                ]
+            }, null, 2));
+
+            // ========================================
+            // 5. .GITIGNORE
+            // ========================================
+            zip.file('.gitignore', `# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+
+# Production
+build
+dist
+
+# Misc
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Vercel
+.vercel
+`);
+
+            // ========================================
+            // 6. README.MD
+            // ========================================
+            zip.file('README.md', `# DNA Matrix Builder Project
+
+This project was exported from DNA Matrix Builder.
+
+## 🚀 Quick Start
+
+\`\`\`bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+\`\`\`
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## 📦 Build for Production
+
+\`\`\`bash
+npm run build
+\`\`\`
+
+The production build will be in the \`dist\` folder.
+
+## 🌐 Deploy to Vercel
+
+### Option 1: Using Vercel CLI
+
+\`\`\`bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel --prod
+\`\`\`
+
+### Option 2: Using GitHub
+
+1. Push to GitHub:
+\`\`\`bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin YOUR_GITHUB_REPO_URL
+git push -u origin main
+\`\`\`
+
+2. Go to [vercel.com](https://vercel.com)
+3. Click "New Project"
+4. Import your GitHub repository
+5. Click "Deploy"
+
+## 📁 Project Structure
+
+\`\`\`
+dna-matrix-project/
+├── components/          # React components
+│   ├── Canvas.tsx
+│   ├── Sidebar.tsx
+│   ├── DataPanel.tsx
+│   └── ...
+├── utils/              # Utility functions
+├── store.ts            # Zustand state management
+├── App.tsx             # Main application
+├── index.tsx           # Entry point
+├── index.css           # Global styles
+├── vite.config.ts      # Vite configuration
+├── vercel.json         # Vercel deployment config
+└── package.json        # Dependencies
+\`\`\`
+
+## 🛠️ Technologies
+
+- **React 19** - UI library
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **Zustand** - State management
+- **Framer Motion** - Animations
+- **Lucide React** - Icons
+- **Tailwind CSS** - Styling
+
+## 📝 License
+
+MIT
+`);
+
+            // ========================================
+            // 7. INDEX.HTML
+            // ========================================
+            zip.file('index.html', `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DNA Matrix Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Share+Tech&family=Orbitron:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Lilex:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/index.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>`);
+
+            // ========================================
+            // 8. INDEX.TSX
+            // ========================================
+            zip.file('index.tsx', `
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
+}
+
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+`);
+
+            // ========================================
+            // 9. INDEX.CSS
+            // ========================================
+            zip.file('index.css', `:root {
+  /* DNA Scale Engine Base */
+  --dna-unit: 16px; 
+  --ui-scale: 1;
+
+  /* Typography Utilities */
+  --dna-text-xs: calc(var(--dna-unit) * 0.75 * var(--ui-scale));
+  --dna-text-sm: calc(var(--dna-unit) * 0.875 * var(--ui-scale));
+  --dna-text-base: calc(var(--dna-unit) * 1 * var(--ui-scale));
+  --dna-text-lg: calc(var(--dna-unit) * 1.125 * var(--ui-scale));
+  --dna-text-xl: calc(var(--dna-unit) * 1.25 * var(--ui-scale));
+  --dna-text-2xl: calc(var(--dna-unit) * 1.5 * var(--ui-scale));
+  --dna-text-3xl: calc(var(--dna-unit) * 1.875 * var(--ui-scale));
+  --dna-text-4xl: calc(var(--dna-unit) * 2.25 * var(--ui-scale));
+  --dna-text-5xl: calc(var(--dna-unit) * 3 * var(--ui-scale));
+  --dna-text-6xl: calc(var(--dna-unit) * 3.75 * var(--ui-scale));
+}
+
+.dna-text-base { font-size: var(--dna-text-base); }
+.dna-text-lg { font-size: var(--dna-text-lg); }
+.dna-text-xl { font-size: var(--dna-text-xl); }
+.dna-text-display { font-size: var(--dna-text-5xl); }
+.dna-text-hero { font-size: var(--dna-text-6xl); }
+`);
+
+            // ========================================
+            // 10. VITE-ENV.D.TS
+            // ========================================
+            zip.file('vite-env.d.ts', `/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_APP_MODE?: string;
+  readonly GEMINI_API_KEY?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+`);
+
+            // ========================================
+            // 11. PROJECT DATA
+            // ========================================
+            zip.file('project-data.json', dnaData);
+
+            // ========================================
+            // 12. ИНСТРУКЦИЯ ПО КОПИРОВАНИЮ ФАЙЛОВ
+            // ========================================
+            zip.file('COPY_FILES_INSTRUCTION.md', `# 📋 Инструкция по копированию файлов
+
+Этот ZIP-архив содержит базовую структуру проекта. Для полного функционирующего проекта вам нужно:
+
+## ✅ Шаг 1: Распакуйте ZIP
+
+Распакуйте этот архив в папку вашего проекта.
+
+## ✅ Шаг 2: Скопируйте файлы из исходного проекта
+
+Из папки исходного проекта скопируйте следующие папки и файлы:
+
+### Обязательные файлы:
+- \`App.tsx\` - главный компонент приложения
+- \`store.ts\` - состояние приложения (Zustand)
+- \`/components/\` - все React компоненты
+- \`/utils/\` - утилиты
+
+### Путь к исходному проекту:
+\`e:\\Downloads\\#ANTYIGRAVITY\\000-GEN.REF\\000-gen.ref\`
+
+## ✅ Шаг 3: Установите зависимости
+
+\`\`\`bash
+npm install
+\`\`\`
+
+## ✅ Шаг 4: Запустите проект
+
+\`\`\`bash
+npm run dev
+\`\`\`
+
+## 🚀 Готово к деплою на GitHub!
+
+После копирования файлов проект готов к загрузке на GitHub и деплою на Vercel.
+`);
+
+            // Генерируем ZIP
+            const blob = await zip.generateAsync({ type: 'blob' });
+
+            // Скачиваем
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'dna-matrix-react-project.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            alert('✅ React проект экспортирован!\n\n📦 Скачан: dna-matrix-react-project.zip\n\n📁 Содержимое:\n• package.json\n• tsconfig.json\n• vite.config.ts\n• vercel.json\n• index.html/tsx/css\n• README.md\n• .gitignore\n• project-data.json\n\n⚠️ ВАЖНО: Скопируйте файлы из текущей папки:\n• App.tsx\n• store.ts\n• /components/\n• /utils/\n\nПодробности в COPY_FILES_INSTRUCTION.md');
+
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('❌ Ошибка при экспорте проекта');
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleExportProductionSite = async () => {
+        setExporting(true);
+
+        try {
+            const dnaData = exportProjectData();
+            const state = JSON.parse(dnaData);
+
+            const getParam = (group: string, id: string) =>
+                state.globalSettings?.[group]?.params?.find((p: any) => p.id === id)?.value;
+
+            const bgColor = getParam('GL02', 'P1') || '#09090B';
+            const textColor = getParam('GL02', 'P4') || '#FFFFFF';
+            const accentColor = getParam('GL02', 'P3') || '#3B82F6';
+            const fontFamily = getParam('GL01', 'P8') || 'Inter';
+            const containerWidth = getParam('GL03', 'P6') || '1200';
+            const radius = getParam('GL07', 'P1') || '8';
+            const isSticky = getParam('GL11', 'P1') === 'true';
+
+            const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1309,126 +1711,142 @@ export const DataPanel: React.FC = () => {
 </body>
 </html>`;
 
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'index.html';
-      a.click();
-      URL.revokeObjectURL(url);
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'index.html';
+            a.click();
+            URL.revokeObjectURL(url);
 
-      setTimeout(() => alert('✅ Site exported successfully!'), 500);
+            setTimeout(() => alert('✅ Site exported successfully!'), 500);
 
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('❌ Export failed. Check console.');
-    } finally {
-      setExporting(false);
-    }
-  };
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('❌ Export failed. Check console.');
+        } finally {
+            setExporting(false);
+        }
+    };
 
-  const handleExportJSON = () => {
-    try {
-      const dnaData = exportProjectData();
-      const blob = new Blob([dnaData], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'dna-project.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      alert('Failed to export JSON');
-    }
-  };
+    const handleExportJSON = () => {
+        try {
+            const dnaData = exportProjectData();
+            const blob = new Blob([dnaData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'dna-project.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            alert('Failed to export JSON');
+        }
+    };
 
-  const handleImportJSON = () => {
-    try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      input.onchange = (e: Event) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
+    const handleImportJSON = () => {
+        try {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e: Event) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const json = event.target?.result as string;
-            importProjectData(json);
-            alert('✅ Project imported successfully!');
-          } catch (error) {
-            alert('❌ Failed to import JSON. Invalid file format.');
-          }
-        };
-        reader.readAsText(file);
-      };
-      input.click();
-    } catch (error) {
-      alert('Failed to import JSON');
-    }
-  };
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const json = event.target?.result as string;
+                        importProjectData(json);
+                        alert('✅ Project imported successfully!');
+                    } catch (error) {
+                        alert('❌ Failed to import JSON. Invalid file format.');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        } catch (error) {
+            alert('Failed to import JSON');
+        }
+    };
 
-  return (
-    <div className="w-[360px] h-full border-l flex flex-col" style={{ backgroundColor: uiTheme.lightPanel }}>
-      <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: uiTheme.elements }}>
-        <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Production Hub</span>
-        <button onClick={toggleDataPanel} className="opacity-20 hover:opacity-100 transition-opacity">
-          <X size={18} />
-        </button>
-      </div>
-
-      <div className="p-8 flex-1 space-y-4">
-        <button
-          onClick={handleExportProductionSite}
-          disabled={exporting}
-          className="w-full p-12 bg-blue-500/10 border-2 border-blue-500/20 rounded-[40px] flex flex-col items-center gap-6 hover:bg-blue-500/20 transition-all group disabled:opacity-50"
-        >
-          <Globe size={48} className="text-blue-500 group-hover:scale-110 transition-transform" />
-          <div className="text-center">
-            <div className="text-[14px] font-black uppercase text-blue-500 tracking-[0.2em]">
-              {exporting ? 'Exporting...' : 'Export HTML Site'}
+    return (
+        <div className="w-[360px] h-full border-l flex flex-col" style={{ backgroundColor: uiTheme.lightPanel }}>
+            <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: uiTheme.elements }}>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Production Hub</span>
+                <button onClick={toggleDataPanel} className="opacity-20 hover:opacity-100 transition-opacity">
+                    <X size={18} />
+                </button>
             </div>
-            <div className="text-[8px] opacity-40 uppercase mt-2">Universal v25.0</div>
-          </div>
-        </button>
 
-        <button
-          onClick={handleExportJSON}
-          className="w-full p-8 bg-green-500/10 border-2 border-green-500/20 rounded-[24px] flex items-center gap-4 hover:bg-green-500/20 transition-all"
-        >
-          <FileCode size={32} className="text-green-500" />
-          <div className="text-left flex-1">
-            <div className="text-[12px] font-bold text-green-500 uppercase">Export JSON</div>
-            <div className="text-[8px] opacity-40 mt-1">Project data</div>
-          </div>
-        </button>
+            <div className="p-8 flex-1 space-y-4">
+                <button
+                    onClick={handleExportProductionSite}
+                    disabled={exporting}
+                    className="w-full p-12 bg-blue-500/10 border-2 border-blue-500/20 rounded-[40px] flex flex-col items-center gap-6 hover:bg-blue-500/20 transition-all group disabled:opacity-50"
+                >
+                    <Globe size={48} className="text-blue-500 group-hover:scale-110 transition-transform" />
+                    <div className="text-center">
+                        <div className="text-[14px] font-black uppercase text-blue-500 tracking-[0.2em]">
+                            {exporting ? 'Exporting...' : 'Export HTML Site'}
+                        </div>
+                        <div className="text-[8px] opacity-40 uppercase mt-2">Universal v25.0</div>
+                    </div>
+                </button>
 
-        <button
-          onClick={handleImportJSON}
-          className="w-full p-8 bg-purple-500/10 border-2 border-purple-500/20 rounded-[24px] flex items-center gap-4 hover:bg-purple-500/20 transition-all"
-        >
-          <Upload size={32} className="text-purple-500" />
-          <div className="text-left flex-1">
-            <div className="text-[12px] font-bold text-purple-500 uppercase">Import JSON</div>
-            <div className="text-[8px] opacity-40 mt-1">Load project</div>
-          </div>
-        </button>
+                <button
+                    onClick={handleExportReactProject}
+                    disabled={exporting}
+                    className="w-full p-8 bg-orange-500/10 border-2 border-orange-500/20 rounded-[24px] flex items-center gap-4 hover:bg-orange-500/20 transition-all group disabled:opacity-50"
+                >
+                    <FileCode size={32} className="text-orange-500" />
+                    <div className="text-left flex-1">
+                        <div className="text-[12px] font-bold text-orange-500 uppercase">
+                            {exporting ? 'Exporting...' : 'Export React Project'}
+                        </div>
+                        <div className="text-[8px] opacity-40 mt-1">Ready for GitHub & Vercel</div>
+                    </div>
+                </button>
 
-        <div className="mt-8 p-4 bg-white/5 rounded-lg">
-          <div className="text-[10px] font-bold uppercase mb-2 text-green-400">✅ Supported Blocks:</div>
-          <ul className="text-[9px] opacity-60 space-y-1 leading-relaxed">
-            <li>• B01 - Navbar</li>
-            <li>• B02 - Hero</li>
-            <li>• B03 - Features/Services</li>
-            <li>• B04 - Gallery</li>
-            <li>• B05 - Testimonials</li>
-            <li>• B06 - CTA</li>
-            <li>• B07 - Footer</li>
-            <li>• Universal fallback</li>
-          </ul>
+                <button
+                    onClick={handleExportJSON}
+                    className="w-full p-8 bg-green-500/10 border-2 border-green-500/20 rounded-[24px] flex items-center gap-4 hover:bg-green-500/20 transition-all"
+                >
+                    <FileCode size={32} className="text-green-500" />
+                    <div className="text-left flex-1">
+                        <div className="text-[12px] font-bold text-green-500 uppercase">Export JSON</div>
+                        <div className="text-[8px] opacity-40 mt-1">Project data</div>
+                    </div>
+                </button>
+
+                <button
+                    onClick={handleImportJSON}
+                    className="w-full p-8 bg-purple-500/10 border-2 border-purple-500/20 rounded-[24px] flex items-center gap-4 hover:bg-purple-500/20 transition-all"
+                >
+                    <Upload size={32} className="text-purple-500" />
+                    <div className="text-left flex-1">
+                        <div className="text-[12px] font-bold text-purple-500 uppercase">Import JSON</div>
+                        <div className="text-[8px] opacity-40 mt-1">Load project</div>
+                    </div>
+                </button>
+
+                <div className="mt-8 p-4 bg-white/5 rounded-lg">
+                    <div className="text-[10px] font-bold uppercase mb-2 text-green-400">✅ Supported Blocks:</div>
+                    <ul className="text-[9px] opacity-60 space-y-1 leading-relaxed">
+                        <li>• B01 - Navbar</li>
+                        <li>• B02 - Hero</li>
+                        <li>• B03 - Features/Services</li>
+                        <li>• B04 - Gallery</li>
+                        <li>• B05 - Testimonials</li>
+                        <li>• B06 - CTA</li>
+                        <li>• B07 - Footer</li>
+                        <li>• Universal fallback</li>
+                    </ul>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
+
+export default DataPanel;

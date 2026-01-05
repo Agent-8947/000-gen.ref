@@ -6,9 +6,13 @@
   "homepage": ".",
   "scripts": {
     "dev": "vite",
+    "dev:viewer": "VITE_APP_MODE=production vite",
     "build": "vite build",
+    "build:production": "VITE_APP_MODE=production vite build",
     "preview": "vite preview",
-    "deploy": "gh-pages -d dist"
+    "preview:viewer": "VITE_APP_MODE=production vite preview",
+    "deploy": "gh-pages -d dist",
+    "deploy:vercel": "vercel --prod"
   },
   "dependencies": {
     "framer-motion": "^12.23.26",
