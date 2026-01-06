@@ -20,27 +20,32 @@ export const translateData = (data: any, currentLang: string = 'en'): any => {
 
     // Handle objects
     if (typeof data === 'object') {
+        const translated: any = {};
         const keys = Object.keys(data);
 
-        // Check if this is a translation object
-        // Translation object must have ONLY language keys (en, uk, ru, etc.)
-        const languageKeys = ['en', 'uk', 'ru', 'de', 'fr', 'es', 'it', 'zh'];
-        const hasLanguageKey = keys.some(k => languageKeys.includes(k));
-        const allKeysAreLanguages = keys.every(k => languageKeys.includes(k));
-
-        // If it has language keys AND all keys are languages, it's a translation object
-        if (hasLanguageKey && allKeysAreLanguages && keys.length > 0) {
-            // This is a translation object, return the translated value
-            const translated = getTranslatedText(data, currentLang);
-            console.log('[translateData] Found translation:', { keys, currentLang, original: data, translated });
-            return translated;
-        }
-
-        // Otherwise, recursively translate all properties
-        const translated: any = {};
-        for (const key in data) {
+        // First pass: copy all keys recursively
+        keys.forEach(key => {
+            // Skip translation keys (e.g. title_uk) from being copied as main keys
+            // But we might need them if we want to fallback? 
+            // Actually, let's copy everything first, recursively
             translated[key] = translateData(data[key], currentLang);
+        });
+
+        // Second pass: apply flat translations (title_uk overrides title)
+        if (currentLang !== 'en') {
+            keys.forEach(key => {
+                // If this is NOT a translation key (doesn't have _lang suffix)
+                if (!key.includes('_')) {
+                    const translatedKey = `${key}_${currentLang}`;
+                    if (data[translatedKey]) {
+                        // Found a translation! Override the original value
+                        translated[key] = data[translatedKey];
+                        // console.log(`[translateData] Overrided ${key} with ${translatedKey}: ${data[translatedKey]}`);
+                    }
+                }
+            });
         }
+
         return translated;
     }
 

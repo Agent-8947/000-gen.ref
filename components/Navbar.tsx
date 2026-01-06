@@ -16,6 +16,15 @@ export const Navbar: React.FC<{ id: string, type: string, localOverrides: any, c
     const layout = localOverrides.layout || {};
     const style = localOverrides.style || {};
 
+    // Translation helper function
+    const getTranslatedText = (key: string): string => {
+        if (currentLang === 'en' || !currentLang) {
+            return data[key] || '';
+        }
+        const translatedKey = `${key}_${currentLang}`;
+        return data[translatedKey] || data[key] || '';
+    };
+
     // Inheritance Logic: Local (F-C06) ?? Global (GL11-P1)
     const isSticky = data.stickyLogic === 'true' || globalSettings['GL11']?.params[0]?.value === 'true';
 
@@ -60,7 +69,7 @@ export const Navbar: React.FC<{ id: string, type: string, localOverrides: any, c
     return (
         <nav style={{ ...navStyle, color: txtColor }}>
             <div className="font-black uppercase tracking-[0.3em] text-sm">
-                {data.header || '000-GEN'}
+                {getTranslatedText('header') || '000-GEN'}
             </div>
             <div className="flex gap-8 items-center">
                 {(data.links || []).map((link: any, i: number) => (
@@ -95,32 +104,40 @@ export const Navbar: React.FC<{ id: string, type: string, localOverrides: any, c
                     </button>
 
                     {langDropdownOpen && (
-                        <div
-                            className="absolute top-full right-0 mt-2 py-2 rounded-lg shadow-2xl border z-50 min-w-[160px]"
-                            style={{
-                                backgroundColor: isDark ? 'rgba(0,0,0,0.95)' : 'rgba(255,255,255,0.95)',
-                                backdropFilter: 'blur(12px)',
-                                borderColor: globalSettings['GL02']?.params[5]?.value || '#00000020'
-                            }}
-                        >
-                            {availableLanguages.map((lang) => (
-                                <button
-                                    key={lang}
-                                    onClick={() => {
-                                        setCurrentLanguage(lang);
-                                        setLangDropdownOpen(false);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-xs flex items-center gap-2 hover:bg-white/10 transition-colors"
-                                    style={{
-                                        color: txtColor,
-                                        backgroundColor: currentLanguage === lang ? 'rgba(59, 130, 246, 0.2)' : 'transparent'
-                                    }}
-                                >
-                                    <span className="text-base">{LANGUAGE_NAMES[lang]?.flag || '🌐'}</span>
-                                    <span className="font-medium">{LANGUAGE_NAMES[lang]?.name || lang}</span>
-                                </button>
-                            ))}
-                        </div>
+                        <>
+                            {/* Backdrop to close dropdown */}
+                            <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => setLangDropdownOpen(false)}
+                            />
+
+                            <div
+                                className="absolute top-full right-0 mt-2 py-2 rounded-lg shadow-2xl border z-50 min-w-[160px]"
+                                style={{
+                                    backgroundColor: isDark ? 'rgba(0,0,0,0.95)' : 'rgba(255,255,255,0.95)',
+                                    backdropFilter: 'blur(12px)',
+                                    borderColor: globalSettings['GL02']?.params[5]?.value || '#00000020'
+                                }}
+                            >
+                                {availableLanguages.map((lang) => (
+                                    <button
+                                        key={lang}
+                                        onClick={() => {
+                                            setCurrentLanguage(lang);
+                                            setLangDropdownOpen(false);
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-xs flex items-center gap-2 hover:bg-white/10 transition-colors"
+                                        style={{
+                                            color: txtColor,
+                                            backgroundColor: currentLanguage === lang ? 'rgba(59, 130, 246, 0.2)' : 'transparent'
+                                        }}
+                                    >
+                                        <span className="text-base">{LANGUAGE_NAMES[lang]?.flag || '🌐'}</span>
+                                        <span className="font-medium">{LANGUAGE_NAMES[lang]?.name || lang}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </div>
 

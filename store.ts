@@ -235,10 +235,32 @@ export const useStore = create<GridState>()(
         state.gridMode === 'columns' ? 'mobile' :
           state.gridMode === 'mobile' ? 'rows' : 'off'
     })),
-    setCurrentLanguage: (lang: string) => set((state) => ({
-      currentLanguage: lang,
-      canvasKey: state.canvasKey + 1
-    })),
+    setCurrentLanguage: (lang: string) => {
+      const state = get();
+
+      // Check if this is first time changing language (not 'en')
+      const isFirstChange = lang !== 'en' && state.currentLanguage === 'en';
+
+      // Check if blocks already have translations
+      const blocks = state.pages[state.currentPage] || [];
+      const hasTranslations = blocks.some(block => {
+        const data = block.localOverrides?.data;
+        if (!data) return false;
+        return Object.keys(data).some(key => key.includes('_'));
+      });
+
+      // Auto-translate if first change and no translations exist
+      if (isFirstChange && !hasTranslations && blocks.length > 0) {
+        console.log('🔄 First language change detected. Auto-translating...');
+        get().autoTranslate();
+      }
+
+      console.log(`🌍 Language changed to: ${lang}`);
+      set({
+        currentLanguage: lang,
+        canvasKey: state.canvasKey + 1
+      });
+    },
     globalSettings: injectedState?.globalSettings || (() => {
       const groups: Record<string, { name: string; params: string[] }> = {
         'GL01': { name: 'Text', params: ["Base Size", "Scale Ratio", "Line Height", "Weight", "Tracking", "Uppercase", "Smoothing", "Font Family"] },
@@ -701,8 +723,23 @@ export const useStore = create<GridState>()(
           'B0201': {
             data: {
               title: "ULTIMATE UI SYNCHRONIZATION",
+              title_uk: "НАЙКРАЩА СИНХРОНІЗАЦІЯ ІНТЕРФЕЙСУ",
+              title_ru: "ПРЕВОСХОДНАЯ СИНХРОНИЗАЦИЯ ИНТЕРФЕЙСА",
+              title_es: "SINCRONIZACIÓN ÚLTIMA DE INTERFAZ",
+              title_fr: "SYNCHRONISATION ULTIME DE L'INTERFACE",
+              title_de: "ULTIMATIVE UI-SYNCHRONISATION",
+              title_pl: "NAJLEPSZA SYNCHRONIZACJA INTERFEJSU",
+
               titleTypo: { useGlobal: true, fontSize: '64', fontWeight: '900', letterSpacing: '-0.04', lineHeight: '0.9', uppercase: true },
+
               description: "14-Node architectural grid active. System stability: 100%. Synchronizing DNA with global parameters.",
+              description_uk: "Активна архітектурна сітка з 14 вузлів. Стабільність системи: 100%. Синхронізація ДНК з глобальними параметрами.",
+              description_ru: "Активна архитектурная сетка из 14 узлов. Стабильность системы: 100%. Синхронизация ДНК с глобальными параметрами.",
+              description_es: "Cuadrícula arquitectónica de 14 nodos activa. Estabilidad del sistema: 100%. Sincronizando ADN con parámetros globales.",
+              description_fr: "Grille architecturale de 14 nœuds active. Stabilité du système : 100 %. Synchronisation de l'ADN avec les paramètres globaux.",
+              description_de: "14-Knoten-Architekturgitter aktiv. Systemstabilität: 100%. DNA-Synchronisierung mit globalen Parametern.",
+              description_pl: "Aktywna siatka architektoniczna 14 węzłów. Stabilność systemu: 100%. Synchronizacja DNA z parametrami globalnymi.",
+
               descriptionTypo: { useGlobal: true, fontSize: '20', fontWeight: '400', letterSpacing: '0', lineHeight: '1.6', uppercase: false },
               primaryBtnText: "Initialize System", primaryBtnVisible: true,
               secondaryBtnText: "View Protocol", secondaryBtnVisible: true
@@ -1336,64 +1373,129 @@ export const useLocalStorage = (key: string, initialValue: any) => {
 
       let translatedCount = 0;
 
-      const translateWord = (text: string, lang: 'uk' | 'ru'): string => {
-        const dictUk: Record<string, string> = {
-          'DESIGN': 'ДИЗАЙН', 'DRIVEN': 'КЕРОВАНИЙ', 'DNA': 'ДНК',
+      // Translation dictionaries for all languages
+      const translations: Record<string, Record<string, string>> = {
+        uk: {
+          'DESIGN': 'ДИЗАЙН', 'DRIVEN': 'КЕРОВАНИЙ', 'BY': 'НА ОСНОВІ', 'DNA': 'ДНК',
           'Configure': 'Налаштуйте', 'your': 'ваш', 'interface': 'інтерфейс',
           'through': 'через', 'global': 'глобальні', 'genetic': 'генетичні',
           'parameters': 'параметри', 'or': 'або', 'local': 'локальні',
-          'overrides': 'перевизначення', 'Get': 'Почати', 'Launch': 'Запустити',
-          'System': 'систему', 'Learn': 'Дізнатися', 'More': 'більше',
-          'Home': 'Головна', 'About': 'Про нас', 'Contact': 'Контакти'
-        };
-
-        const dictRu: Record<string, string> = {
-          'DESIGN': 'ДИЗАЙН', 'DRIVEN': 'УПРАВЛЯЕМЫЙ', 'DNA': 'ДНК',
+          'overrides': 'перевизначення', 'Get': 'Почати', 'Started': 'роботу',
+          'Launch': 'Запустити', 'System': 'систему', 'Learn': 'Дізнатися',
+          'More': 'більше', 'Home': 'Головна', 'About': 'Про нас',
+          'Contact': 'Контакти', 'Services': 'Послуги', 'Portfolio': 'Портфоліо',
+          'ULTIMATE': 'НАЙКРАЩИЙ', 'UI': 'ІНТЕРФЕЙС', 'SYNCHRONIZATION': 'СИНХРОНІЗАЦІЯ'
+        },
+        ru: {
+          'DESIGN': 'ДИЗАЙН', 'DRIVEN': 'УПРАВЛЯЕМЫЙ', 'BY': 'НА ОСНОВЕ', 'DNA': 'ДНК',
           'Configure': 'Настройте', 'your': 'ваш', 'interface': 'интерфейс',
           'through': 'через', 'global': 'глобальные', 'genetic': 'генетические',
           'parameters': 'параметры', 'or': 'или', 'local': 'локальные',
-          'overrides': 'переопределения', 'Get': 'Начать', 'Launch': 'Запустить',
-          'System': 'систему', 'Learn': 'Узнать', 'More': 'больше',
-          'Home': 'Главная', 'About': 'О нас', 'Contact': 'Контакты'
-        };
+          'overrides': 'переопределения', 'Get': 'Начать', 'Started': 'работу',
+          'Launch': 'Запустить', 'System': 'систему', 'Learn': 'Узнать',
+          'More': 'больше', 'Home': 'Главная', 'About': 'О нас',
+          'Contact': 'Контакты', 'Services': 'Услуги', 'Portfolio': 'Портфолио',
+          'ULTIMATE': 'ПРЕВОСХОДНЫЙ', 'UI': 'ИНТЕРФЕЙС', 'SYNCHRONIZATION': 'СИНХРОНИЗАЦИЯ'
+        },
+        es: {
+          'DESIGN': 'DISEÑO', 'DRIVEN': 'IMPULSADO', 'BY': 'POR', 'DNA': 'ADN',
+          'Configure': 'Configure', 'your': 'su', 'interface': 'interfaz',
+          'through': 'a través de', 'global': 'globales', 'genetic': 'genéticos',
+          'parameters': 'parámetros', 'or': 'o', 'local': 'locales',
+          'overrides': 'anulaciones', 'Get': 'Comenzar', 'Started': '',
+          'Launch': 'Lanzar', 'System': 'sistema', 'Learn': 'Aprender',
+          'More': 'más', 'Home': 'Inicio', 'About': 'Acerca de',
+          'Contact': 'Contacto', 'Services': 'Servicios', 'Portfolio': 'Portafolio',
+          'ULTIMATE': 'ÚLTIMO', 'UI': 'INTERFAZ', 'SYNCHRONIZATION': 'SINCRONIZACIÓN'
+        },
+        fr: {
+          'DESIGN': 'CONCEPTION', 'DRIVEN': 'PILOTÉ', 'BY': 'PAR', 'DNA': 'ADN',
+          'Configure': 'Configurez', 'your': 'votre', 'interface': 'interface',
+          'through': 'via', 'global': 'globaux', 'genetic': 'génétiques',
+          'parameters': 'paramètres', 'or': 'ou', 'local': 'locaux',
+          'overrides': 'remplacements', 'Get': 'Commencer', 'Started': '',
+          'Launch': 'Lancer', 'System': 'système', 'Learn': 'En savoir',
+          'More': 'plus', 'Home': 'Accueil', 'About': 'À propos',
+          'Contact': 'Contact', 'Services': 'Services', 'Portfolio': 'Portfolio',
+          'ULTIMATE': 'ULTIME', 'UI': 'INTERFACE', 'SYNCHRONIZATION': 'SYNCHRONISATION'
+        },
+        de: {
+          'DESIGN': 'DESIGN', 'DRIVEN': 'GETRIEBEN', 'BY': 'VON', 'DNA': 'DNA',
+          'Configure': 'Konfigurieren', 'your': 'Ihre', 'interface': 'Schnittstelle',
+          'through': 'über', 'global': 'globale', 'genetic': 'genetische',
+          'parameters': 'Parameter', 'or': 'oder', 'local': 'lokale',
+          'overrides': 'Überschreibungen', 'Get': 'Beginnen', 'Started': '',
+          'Launch': 'Starten', 'System': 'System', 'Learn': 'Erfahren',
+          'More': 'mehr', 'Home': 'Startseite', 'About': 'Über uns',
+          'Contact': 'Kontakt', 'Services': 'Dienstleistungen', 'Portfolio': 'Portfolio',
+          'ULTIMATE': 'ULTIMATIV', 'UI': 'BENUTZEROBERFLÄCHE', 'SYNCHRONIZATION': 'SYNCHRONISATION'
+        },
+        pl: {
+          'DESIGN': 'PROJEKT', 'DRIVEN': 'NAPĘDZANY', 'BY': 'PRZEZ', 'DNA': 'DNA',
+          'Configure': 'Skonfiguruj', 'your': 'swój', 'interface': 'interfejs',
+          'through': 'poprzez', 'global': 'globalne', 'genetic': 'genetyczne',
+          'parameters': 'parametry', 'or': 'lub', 'local': 'lokalne',
+          'overrides': 'nadpisania', 'Get': 'Rozpocznij', 'Started': '',
+          'Launch': 'Uruchom', 'System': 'system', 'Learn': 'Dowiedz się',
+          'More': 'więcej', 'Home': 'Strona główna', 'About': 'O nas',
+          'Contact': 'Kontakt', 'Services': 'Usługi', 'Portfolio': 'Portfolio',
+          'ULTIMATE': 'NAJLEPSZY', 'UI': 'INTERFEJS', 'SYNCHRONIZATION': 'SYNCHRONIZACJA'
+        }
+      };
 
-        const dict = lang === 'uk' ? dictUk : dictRu;
+      const translateText = (text: string, lang: string): string => {
+        if (!text || typeof text !== 'string') return text;
+
+        const dict = translations[lang];
+        if (!dict) return text;
+
         let result = text;
         Object.keys(dict).forEach(key => {
           const regex = new RegExp(`\\b${key}\\b`, 'gi');
           result = result.replace(regex, dict[key]);
         });
+
         return result.replace(/\s+/g, ' ').trim();
       };
 
-      blocks.forEach((block: any) => {
-        if (!block.localOverrides?.data) return;
+      set(produce((state: GridState) => {
+        blocks.forEach((block: any) => {
+          if (!block.localOverrides?.data) return;
 
-        const data = block.localOverrides.data;
-        let hasChanges = false;
+          const data = block.localOverrides.data;
+          let hasChanges = false;
 
-        Object.keys(data).forEach(key => {
-          const value = data[key];
+          // Get all string keys
+          const stringKeys = Object.keys(data).filter(key => {
+            const value = data[key];
+            return typeof value === 'string' && value.trim() && !key.includes('_');
+          });
 
-          if (typeof value !== 'string' || !value.trim()) return;
+          stringKeys.forEach(key => {
+            const originalValue = data[key];
 
-          data[key] = {
-            en: value,
-            uk: translateWord(value, 'uk'),
-            ru: translateWord(value, 'ru')
-          };
+            // Add translations for all languages
+            ['uk', 'ru', 'es', 'fr', 'de', 'pl'].forEach(lang => {
+              const translatedKey = `${key}_${lang}`;
+              if (!data[translatedKey]) {
+                data[translatedKey] = translateText(originalValue, lang);
+                hasChanges = true;
+              }
+            });
+          });
 
-          hasChanges = true;
-          console.log(`  ✓ Translated: ${key}`);
+          if (hasChanges) {
+            translatedCount++;
+            console.log(`  ✓ Translated block: ${block.type} (${block.id.slice(0, 8)})`);
+          }
         });
+      }));
 
-        if (hasChanges) translatedCount++;
-      });
-
-      state.setCurrentLanguage(state.currentLanguage);
+      // Trigger a re-render with the current language
+      get().setCurrentLanguage(get().currentLanguage);
 
       console.log(`✅ Auto-translation complete! Translated ${translatedCount} blocks.`);
-      console.log('🔄 Switch languages to test!');
+      console.log('🔄 Switch languages in Global Settings (GL12) to test!');
     },
   }),
 );

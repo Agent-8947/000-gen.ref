@@ -2,8 +2,9 @@
 import React from 'react';
 import { useStore } from '../store';
 import { motion } from 'framer-motion';
+import { translateData } from '../utils/withTranslation';
 
-export const Preview: React.FC<{ id: string, localOverrides: any }> = ({ id, localOverrides }) => {
+export const Preview: React.FC<{ id: string, localOverrides: any, currentLang?: string }> = ({ id, localOverrides, currentLang = 'en' }) => {
     const { globalSettings, viewportMode } = useStore();
     const gl02 = globalSettings['GL02'].params;
     const gl07 = globalSettings['GL07'].params;
@@ -17,7 +18,9 @@ export const Preview: React.FC<{ id: string, localOverrides: any }> = ({ id, loc
     const animDuration = parseFloat(gl09[0].value);
     const animEntranceY = parseFloat(gl09[2].value);
 
-    const data = localOverrides.data || { title: 'Live Preview', url: '' };
+    // Translate data for current language
+    const translatedData = translateData(localOverrides.data, currentLang);
+    const data = translatedData || { title: 'Live Preview', url: '' };
     const layout = localOverrides.layout || { paddingY: '80', aspect: '16/9' };
 
     return (

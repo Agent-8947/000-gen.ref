@@ -31,6 +31,21 @@ export const Hero: React.FC<HeroProps> = ({ id, type, localOverrides: overrides,
         secondaryBtnVisible: true
     };
 
+    // Translation helper function
+    const getTranslatedText = (key: string): string => {
+        if (currentLang === 'en' || !currentLang) {
+            return safeData[key] || '';
+        }
+        const translatedKey = `${key}_${currentLang}`;
+        const result = safeData[translatedKey] || safeData[key] || '';
+
+        // Debug logging
+        const availableKeys = Object.keys(safeData).filter(k => k.startsWith(key));
+        console.log(`[Hero Translation] key="${key}", lang="${currentLang}", translatedKey="${translatedKey}", result="${result}", availableKeys:`, availableKeys);
+
+        return result;
+    };
+
     const layout = overrides.layout || { height: '70vh', alignment: 'center', paddingTop: '80px' };
 
     // Motion Engine
@@ -225,7 +240,7 @@ export const Hero: React.FC<HeroProps> = ({ id, type, localOverrides: overrides,
                         ...getEntranceStyle(0),
                         textShadow: isFullBg ? '0 1px 8px rgba(0,0,0,0.4)' : 'none'
                     }} className="tracking-tight leading-tight">
-                        {safeData.title}
+                        {getTranslatedText('title')}
                     </h1>
 
                     <p style={{
@@ -233,12 +248,12 @@ export const Hero: React.FC<HeroProps> = ({ id, type, localOverrides: overrides,
                         ...getEntranceStyle(1),
                         textShadow: isFullBg ? '0 1px 6px rgba(0,0,0,0.3)' : 'none'
                     }} className={`opacity-60 ${layout.alignment === 'center' ? 'mx-auto' : ''}`}>
-                        {safeData.description}
+                        {getTranslatedText('description')}
                     </p>
 
                     <div style={getEntranceStyle(2)} className={`flex items-center gap-4 pt-6 ${layout.alignment === 'center' ? 'justify-center' : layout.alignment === 'right' ? 'justify-end' : 'justify-start'}`}>
-                        {safeData.primaryBtnVisible !== false && renderButton(safeData.primaryBtnText, true)}
-                        {safeData.secondaryBtnVisible !== false && renderButton(safeData.secondaryBtnText, false)}
+                        {safeData.primaryBtnVisible !== false && renderButton(getTranslatedText('primaryBtnText'), true)}
+                        {safeData.secondaryBtnVisible !== false && renderButton(getTranslatedText('secondaryBtnText'), false)}
                     </div>
                 </div>
 
